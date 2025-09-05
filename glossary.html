@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Interactive Glossary</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f9f9f9;
+    }
+    h2 {
+      text-align: center;
+    }
+    #search {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    .term {
+      background: #fff;
+      margin: 8px 0;
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      cursor: pointer;
+    }
+    .definition {
+      display: none;
+      margin-top: 8px;
+      color: #333;
+    }
+    .term.open .definition {
+      display: block;
+    }
+    .glossary-term {
+      border-bottom: 1px dashed #555;
+      cursor: help;
+    }
+    #glossary-tooltip {
+      position: absolute;
+      background: #333;
+      color: #fff;
+      padding: 10px;
+      border-radius: 6px;
+      max-width: 250px;
+      z-index: 9999;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    button {
+      margin-top: 15px;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      background: #0073e6;
+      color: #fff;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h2>Glossary</h2>
+  <input type="text" id="search" placeholder="Search terms...">
+  <div id="glossary"></div>
+  <button onclick="glossary.exportGlossary()">Export Glossary</button>
+
+  <script>
+    class Glossary {
+      constructor(containerId, searchId) {
+        this.container = document.getElementById(containerId);
+        this.searchInput = document.getElementById(searchId);
+
+        // 🔹 Inline glossary data (edit/add here)
+        this.terms = [
+          {
+            term: "Health",
+            definition: "The practice of creating learning experiences.",
+            reference: "Smith, J. (2020). Learning Theories.",
+            link: "https://en.wikipedia.org/wiki/Instructional_design"
+          },
+          {
+            term: "Exercise",
+            definition: "Sharable Content Object Reference Model, a set of standards for eLearning.",
+            reference: "ADL Initiative",
+            link: "https://adlnet.gov"
+          },
+          {
+            term: "Stress",
+            definition: "A web-based eLearning authoring tool by Articulate.",
+            link: "https://articulate.com/360/rise"
+          },
+          {
+            term: "Storyline 360",
+            definition: "A powerful authoring tool for interactive eLearning content.",
+            link: "https://articulate.com/360/storyline"
+          }
+        ];
+
+        this.renderGlossary();
+        this.enableSearch();
+        this.scanPageForTerms();
+      }
+
+      renderGlossary(filter = "") {
+        this.container.innerHTML = "";
+        this.terms
+          .filter(item => item.term.toLowerCase().includes(filter.toLowerCase()))
+          .forEach(item => {
+            const termDiv = document.createElement("div");
+            termDiv.className = "term";
+            termDiv.innerHTML = `
+              <strong>${item.term}</strong>
+              <div class="definition">
+                ${item.definition}
+                ${item.reference ? `<br><em>${item.reference}</em>` : ""}
+                ${item.link ? `<br><a href="${item.link}" target="_blank">More info</a>` : ""}
+              </div>`;
+            termDiv.addEventListener("click", () => {
+              termDiv.classList.toggle("open");
+            });
+            this.container.appendChild(termDiv);
+          });
+      }
+
+      enableSearch() {
+        this.searchInput.addEventListener("input", e => {
+          this.renderGlossary(e.target.value);
+        });
+      }
+
+      scanPageForTerms() {
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+
+        this.terms.forEach(item => {
+          const regex = new RegExp("\\b(" + item.term + ")\\b", "gi");
+          nodes.forEach(node => {
+            if (regex.test(node.nodeValue)) {
+              const span = document.createElement("span");
+              span.innerHTML = node.nodeValue.replace(regex, match =>
+                `<span class="glossary-term" data-term="${item.term}">${match}</span>`
+              );
+              node.parentNode.replaceChild(span, node);
+            }
+          });
+        });
+
+        this.attachTooltips();
+      }
+
+      attachTooltips() {
+        document.querySelectorAll(".glossary-term").forEach(el => {
+          el.addEventListener("mouseenter", e => this.showTooltip(e, el.dataset.term));
+          el.addEventListener("mouseleave", () => this.hideTooltip());
+          el.addEventListener("click", e => this.showTooltip(e, el.dataset.term)); // mobile
+        });
+      }
+
+      showTooltip(e, term) {
+        this.hideTooltip();
+        const item = this.terms.find(t => t.term === term);
+        if (!item) return;
+
+        const tooltip = document.createElement("div");
+        tooltip.id = "glossary-tooltip";
+        tooltip.innerHTML = `<strong>${item.term}</strong><br>${item.definition}`;
+        document.body.appendChild(tooltip);
+
+        const rect = e.target.getBoundingClientRect();
+        tooltip.style.top = (rect.bottom + window.scrollY + 5) + "px";
+        tooltip.style.left = (rect.left + window.scrollX) + "px";
+      }
+
+      hideTooltip() {
+        const tooltip = document.getElementById("glossary-tooltip");
+        if (tooltip) tooltip.remove();
+      }
+
+      exportGlossary() {
+        const blob = new Blob([JSON.stringify(this.terms, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "glossary.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    // Initialize glossary
+    const glossary = new Glossary("glossary", "search");
+  </script>
+</body>
+</html>
